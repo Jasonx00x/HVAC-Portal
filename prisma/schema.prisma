@@ -1,0 +1,397 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  OFFICE_ADMIN
+  TECHNICIAN
+}
+
+enum JobType {
+  APARTMENT_COMMERCIAL
+  RESIDENTIAL
+}
+
+enum JobStatus {
+  NEW
+  SCHEDULED
+  IN_PROGRESS
+  WAITING_ON_PARTS
+  WAITING_FOR_APPROVAL
+  COMPLETED
+  INVOICED
+  PAID
+  CANCELED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  EMERGENCY
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  APPROVED
+  PAID
+  PARTIAL_PAYMENT
+  OVERDUE
+  CANCELED
+}
+
+enum ApprovalStatus {
+  NEEDS_APPROVAL
+  ESTIMATE_SENT
+  APPROVED
+  DENIED
+  WAITING_ON_MANAGER
+  WAITING_ON_PARTS
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      Role
+  employee  Employee?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Employee {
+  id          String      @id @default(cuid())
+  userId      String?     @unique
+  user        User?       @relation(fields: [userId], references: [id])
+  name        String
+  role        Role
+  phone       String?
+  email       String?
+  hourlyRate  Decimal
+  active      Boolean     @default(true)
+  jobs        Job[]
+  timesheets  Timesheet[]
+  callbacks   Callback[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Property {
+  id                       String                @id @default(cuid())
+  name                     String
+  address                  String
+  city                     String
+  state                    String
+  zipCode                  String
+  managerName              String?
+  managerPhone             String?
+  managerEmail             String?
+  billingContactName       String?
+  billingEmail             String?
+  accessInstructions       String?
+  parkingInstructions      String?
+  buildingRules            String?
+  contractNotes            String?
+  standardPricingNotes     String?
+  refrigerantTypes         String?
+  commonWaterHeaterModels  String?
+  commonEquipmentNotes     String?
+  poRequirementNotes       String?
+  approvalProcessNotes     String?
+  active                   Boolean               @default(true)
+  units                    Unit[]
+  equipment                Equipment[]
+  jobs                     Job[]
+  invoices                 Invoice[]
+  communicationLogs        CommunicationLog[]
+  maintenanceContracts     MaintenanceContract[]
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+}
+
+model Unit {
+  id          String      @id @default(cuid())
+  propertyId  String
+  property    Property    @relation(fields: [propertyId], references: [id])
+  unitNumber  String
+  floor       String?
+  accessNotes String?
+  tenantNotes String?
+  active      Boolean     @default(true)
+  equipment   Equipment[]
+  jobs        Job[]
+  invoices    Invoice[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([propertyId, unitNumber])
+}
+
+model ResidentialClient {
+  id        String      @id @default(cuid())
+  name      String
+  address   String
+  phone     String?
+  email     String?
+  notes     String?
+  equipment Equipment[]
+  jobs      Job[]
+  invoices  Invoice[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model Equipment {
+  id                  String             @id @default(cuid())
+  propertyId          String?
+  property            Property?          @relation(fields: [propertyId], references: [id])
+  unitId              String?
+  unit                Unit?              @relation(fields: [unitId], references: [id])
+  residentialClientId String?
+  residentialClient   ResidentialClient? @relation(fields: [residentialClientId], references: [id])
+  type                String
+  brand               String?
+  modelNumber         String?
+  serialNumber        String?
+  refrigerantType     String?
+  tonnage             String?
+  fuelType            String?
+  waterHeaterSize     String?
+  installDate         DateTime?
+  warrantyExpiration  DateTime?
+  notes               String?
+  dataPlatePhotoUrl   String?
+  jobs                Job[]
+  warranties          Warranty[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Job {
+  id                  String             @id @default(cuid())
+  jobNumber           String             @unique
+  jobType             JobType
+  propertyId          String?
+  property            Property?          @relation(fields: [propertyId], references: [id])
+  unitId              String?
+  unit                Unit?              @relation(fields: [unitId], references: [id])
+  residentialClientId String?
+  residentialClient   ResidentialClient? @relation(fields: [residentialClientId], references: [id])
+  equipmentId         String?
+  equipment           Equipment?         @relation(fields: [equipmentId], references: [id])
+  serviceType         String
+  priority            Priority           @default(NORMAL)
+  status              JobStatus          @default(NEW)
+  technicianId        String?
+  technician          Employee?          @relation(fields: [technicianId], references: [id])
+  scheduledAt         DateTime?
+  completedAt         DateTime?
+  problemReported     String
+  diagnosis           String?
+  workPerformed       String?
+  internalNotes        String?
+  customerNotes        String?
+  approvalStatus      ApprovalStatus?
+  poNumber            String?
+  isCallback          Boolean            @default(false)
+  materials           MaterialUsed[]
+  timesheets          Timesheet[]
+  approvals           Approval[]
+  invoices            Invoice[]
+  documents           PhotoDocument[]
+  callbacks           Callback[]         @relation("OriginalJob")
+  callbackRecords     Callback[]         @relation("CallbackJob")
+  partsNeeded         PartNeeded[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model MaterialUsed {
+  id             String   @id @default(cuid())
+  jobId          String
+  job            Job      @relation(fields: [jobId], references: [id])
+  name           String
+  category       String
+  quantity       Decimal
+  unitCost       Decimal
+  totalCost      Decimal
+  supplier       String?
+  notes          String?
+  shouldBill     Boolean  @default(true)
+  addedToInvoice Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model InventoryItem {
+  id                String    @id @default(cuid())
+  name              String
+  category          String
+  quantityInStock   Decimal
+  unitCost          Decimal
+  supplier          String?
+  reorderLevel      Decimal
+  notes             String?
+  lastPurchasedDate DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Timesheet {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id])
+  jobId         String
+  job           Job       @relation(fields: [jobId], references: [id])
+  date          DateTime
+  clockIn       DateTime
+  clockOut      DateTime?
+  breakMinutes  Int       @default(0)
+  totalHours    Decimal
+  notes         String?
+  approved      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Invoice {
+  id                  String             @id @default(cuid())
+  invoiceNumber       String             @unique
+  jobId               String
+  job                 Job                @relation(fields: [jobId], references: [id])
+  propertyId          String?
+  property            Property?          @relation(fields: [propertyId], references: [id])
+  unitId              String?
+  unit                Unit?              @relation(fields: [unitId], references: [id])
+  residentialClientId String?
+  residentialClient   ResidentialClient? @relation(fields: [residentialClientId], references: [id])
+  billingContact      String?
+  billingEmail        String?
+  invoiceDate         DateTime
+  dueDate             DateTime
+  poNumber            String?
+  status              InvoiceStatus      @default(DRAFT)
+  laborTotal          Decimal
+  materialsTotal      Decimal
+  discount            Decimal            @default(0)
+  total               Decimal
+  paymentNotes        String?
+  lineItems           InvoiceLineItem[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model InvoiceLineItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  description String
+  quantity    Decimal
+  unitPrice   Decimal
+  total       Decimal
+}
+
+model Approval {
+  id             String         @id @default(cuid())
+  jobId          String
+  job            Job            @relation(fields: [jobId], references: [id])
+  estimateAmount Decimal
+  status         ApprovalStatus
+  sentDate       DateTime?
+  approvedDate   DateTime?
+  approvedBy     String?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model PhotoDocument {
+  id        String   @id @default(cuid())
+  jobId     String?
+  job       Job?     @relation(fields: [jobId], references: [id])
+  type      String
+  title     String
+  url       String
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model CommunicationLog {
+  id          String    @id @default(cuid())
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id])
+  date        DateTime
+  contactName String
+  topic       String
+  notes       String
+  relatedJob  String?
+  followUp    Boolean   @default(false)
+}
+
+model Warranty {
+  id          String    @id @default(cuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  notes       String?
+}
+
+model Callback {
+  id            String    @id @default(cuid())
+  originalJobId String
+  originalJob   Job       @relation("OriginalJob", fields: [originalJobId], references: [id])
+  callbackJobId String?
+  callbackJob   Job?      @relation("CallbackJob", fields: [callbackJobId], references: [id])
+  technicianId  String?
+  technician    Employee? @relation(fields: [technicianId], references: [id])
+  reason        String
+  cost          Decimal
+  billable      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+}
+
+model MaintenanceContract {
+  id              String   @id @default(cuid())
+  propertyId      String
+  property        Property @relation(fields: [propertyId], references: [id])
+  startDate       DateTime
+  endDate         DateTime
+  monthlyValue    Decimal
+  includedServices String
+  excludedServices String?
+  renewalReminder DateTime?
+}
+
+model PartNeeded {
+  id            String   @id @default(cuid())
+  jobId         String
+  job           Job      @relation(fields: [jobId], references: [id])
+  name          String
+  supplier      String?
+  estimatedCost Decimal
+  ordered       Boolean  @default(false)
+  received      Boolean  @default(false)
+}
+
+model Setting {
+  id       String @id @default(cuid())
+  key      String @unique
+  value    String
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  name        String
+  type        String
+  description String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+}
