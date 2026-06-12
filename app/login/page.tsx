@@ -8,7 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = useMemo(() => searchParams.get("next") || "/dashboard", [searchParams]);
+  const next = useMemo(() => {
+    const requested = searchParams.get("next") || "/dashboard";
+    return requested.startsWith("/") && !requested.startsWith("//") ? requested : "/dashboard";
+  }, [searchParams]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState("Use a Supabase Auth account to enter the portal.");
@@ -25,7 +28,9 @@ function LoginForm() {
       setLoading(false);
       return;
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password }).catch(() => ({
+      error: { message: "Supabase could not be reached. Check the project URL/key and internet connection, then try again." }
+    }));
     if (error) {
       setNotice(error.message);
       setLoading(false);

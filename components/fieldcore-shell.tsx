@@ -64,6 +64,7 @@ export async function FieldCoreShell({
               {hasPermission(access, "manage_jobs") ? (
                 <Link className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white" href="/jobs">New work order</Link>
               ) : null}
+              <Link className="rounded-md border border-border px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/profile">Profile</Link>
               <Link className="rounded-md border border-border px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/logout">Logout</Link>
             </div>
           </div>

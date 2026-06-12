@@ -201,7 +201,15 @@ function isAssignedTechnician(job: Record<string, unknown>, access: CurrentAcces
 }
 
 function scopeWorkspaceForAccess(workspace: Record<string, unknown>, access: CurrentAccess) {
-  if (access.role !== "technician") return workspace;
+  const currentUser = {
+    userId: access.userId,
+    email: access.email,
+    fullName: access.fullName,
+    role: access.role,
+    status: access.status ?? "active",
+    permissions: access.permissions
+  };
+  if (access.role !== "technician") return { ...workspace, currentUser };
   const jobs = Array.isArray(workspace.jobs) ? workspace.jobs.filter((job) => isAssignedTechnician(job as Record<string, unknown>, access)) : [];
   const propertyIds = new Set(jobs.map((job) => String((job as Record<string, unknown>).propertyId ?? "")).filter(Boolean));
   const properties = Array.isArray(workspace.properties)
@@ -211,10 +219,58 @@ function scopeWorkspaceForAccess(workspace: Record<string, unknown>, access: Cur
   return {
     jobs,
     properties,
+    currentUser,
     workflowSteps: workspace.workflowSteps,
     residentialPipelineSteps: workspace.residentialPipelineSteps,
     serviceTypes: workspace.serviceTypes
   };
+}
+
+function sanitizeGeoPoint(value: unknown) {
+  if (!value || typeof value !== "object") return undefined;
+  const point = value as Record<string, unknown>;
+  const latitude = Number(point.latitude);
+  const longitude = Number(point.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined;
+  const accuracy = Number(point.accuracy);
+  return {
+    latitude,
+    longitude,
+    ...(Number.isFinite(accuracy) ? { accuracy } : {}),
+    capturedAt: String(point.capturedAt ?? new Date().toISOString())
+  };
+}
+
+function sanitizeLocationEvents(value: unknown, current: unknown, jobId: string, access: CurrentAccess) {
+  const incomingEvents = Array.isArray(value) ? value : [];
+  const currentEvents = Array.isArray(current) ? current : [];
+  const existingIds = new Set(currentEvents.map((event) => String((event as Record<string, unknown>).id ?? "")));
+  const allowedActions = new Set(["arrived", "start_work", "complete_job"]);
+  const allowedPermissionStatuses = new Set(["granted", "denied", "unavailable"]);
+  const cleanIncoming = incomingEvents
+    .map((event) => event as Record<string, unknown>)
+    .filter((event) => !existingIds.has(String(event.id ?? "")))
+    .map((event) => {
+      const latitude = Number(event.latitude);
+      const longitude = Number(event.longitude);
+      const accuracy = Number(event.accuracy);
+      const actionType = String(event.actionType ?? "");
+      const permissionStatus = String(event.permissionStatus ?? "unavailable");
+      if (!allowedActions.has(actionType)) return null;
+      return {
+        id: String(event.id ?? `loc-${Date.now()}`),
+        technicianId: access.userId,
+        jobId,
+        actionType,
+        ...(Number.isFinite(latitude) ? { latitude } : {}),
+        ...(Number.isFinite(longitude) ? { longitude } : {}),
+        ...(Number.isFinite(accuracy) ? { accuracy } : {}),
+        timestamp: String(event.timestamp ?? new Date().toISOString()),
+        permissionStatus: allowedPermissionStatuses.has(permissionStatus) ? permissionStatus : "unavailable"
+      };
+    })
+    .filter(Boolean);
+  return [...currentEvents, ...cleanIncoming];
 }
 
 function mergeTechnicianWorkspaceUpdate(currentWorkspace: Record<string, unknown>, incomingWorkspace: Record<string, unknown>, access: CurrentAccess) {
@@ -231,14 +287,29 @@ function mergeTechnicianWorkspaceUpdate(currentWorkspace: Record<string, unknown
     if (allowedStatus === "Completed" && current.jobType === "residential" && current.residentialClientId) {
       completedResidentialClientIds.add(String(current.residentialClientId));
     }
-    return {
+    const next: Record<string, unknown> = {
       ...current,
       diagnosis: String(incoming.diagnosis ?? current.diagnosis ?? ""),
+      workPerformed: String(incoming.workPerformed ?? current.workPerformed ?? ""),
       materials: String(incoming.materials ?? current.materials ?? ""),
+      laborNotes: String(incoming.laborNotes ?? current.laborNotes ?? ""),
       photos: Number(incoming.photos ?? current.photos ?? 0),
+      photoMetadata: Array.isArray(incoming.photoMetadata) ? incoming.photoMetadata : current.photoMetadata,
       clockedIn: Boolean(incoming.clockedIn ?? current.clockedIn ?? false),
-      status: allowedStatus || current.status
+      status: allowedStatus || current.status,
+      locationStatus: String(incoming.locationStatus ?? current.locationStatus ?? ""),
+      locationEvents: sanitizeLocationEvents(incoming.locationEvents, current.locationEvents, String(current.id), access)
     };
+    const arrivedLocation = sanitizeGeoPoint(incoming.arrivedLocation);
+    const startLocation = sanitizeGeoPoint(incoming.startLocation);
+    const completionLocation = sanitizeGeoPoint(incoming.completionLocation);
+    if (incoming.arrivedAt) next.arrivedAt = String(incoming.arrivedAt);
+    if (incoming.startedAt) next.startedAt = String(incoming.startedAt);
+    if (incoming.completedAt) next.completedAt = String(incoming.completedAt);
+    if (arrivedLocation) next.arrivedLocation = arrivedLocation;
+    if (startLocation) next.startLocation = startLocation;
+    if (completionLocation) next.completionLocation = completionLocation;
+    return next;
   }) : [];
   const records = Array.isArray(currentWorkspace.records) && completedResidentialClientIds.size > 0
     ? currentWorkspace.records.map((record) => {

@@ -162,6 +162,42 @@ function dollars(value: number) {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
+function invoiceDateValue(invoice: InvoiceRecord) {
+  const value = invoice.date ?? invoice.dueDate ?? "";
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function startOfWeek(date = new Date()) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  next.setDate(next.getDate() - next.getDay());
+  return next;
+}
+
+function matchesInvoiceDateFilter(invoice: InvoiceRecord, filter: string, from: string, to: string) {
+  if (filter === "all") return true;
+  const timestamp = invoiceDateValue(invoice);
+  if (!timestamp) return false;
+  const date = new Date(timestamp);
+  const now = new Date();
+  if (filter === "week") {
+    const start = startOfWeek(now);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    return date >= start && date < end;
+  }
+  if (filter === "month") {
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }
+  if (filter === "custom") {
+    const start = from ? new Date(`${from}T00:00:00`) : null;
+    const end = to ? new Date(`${to}T23:59:59`) : null;
+    return (!start || date >= start) && (!end || date <= end);
+  }
+  return true;
+}
+
 function normalizeWorkflowSteps(value?: string[], fallback = statusColumns) {
   const steps = value?.length ? value : fallback;
   const seen = new Set<string>();
@@ -333,6 +369,10 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editingManagerId, setEditingManagerId] = useState<string | null>(null);
   const [invoiceFilter, setInvoiceFilter] = useState("all");
+  const [invoiceDateFilter, setInvoiceDateFilter] = useState("all");
+  const [invoiceSort, setInvoiceSort] = useState("newest");
+  const [invoiceDateFrom, setInvoiceDateFrom] = useState("");
+  const [invoiceDateTo, setInvoiceDateTo] = useState("");
   const [workflowDraft, setWorkflowDraft] = useState("");
   const [residentialWorkflowDraft, setResidentialWorkflowDraft] = useState("");
   const [calendarDate, setCalendarDate] = useState(new Date().toISOString().slice(0, 10));
@@ -1231,7 +1271,14 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
         || (invoiceFilter === "unpaid" && invoice.status !== "Paid")
         || (invoiceFilter === "imported" && invoice.source === "Imported tracker")
         || (invoiceFilter === "portal" && invoice.source !== "Imported tracker");
-      return matchesSearch && matchesFilter;
+      return matchesSearch && matchesFilter && matchesInvoiceDateFilter(invoice, invoiceDateFilter, invoiceDateFrom, invoiceDateTo);
+    }).sort((a, b) => {
+      if (invoiceSort === "oldest") return invoiceDateValue(a) - invoiceDateValue(b);
+      if (invoiceSort === "amount-high") return b.amount - a.amount;
+      if (invoiceSort === "amount-low") return a.amount - b.amount;
+      if (invoiceSort === "building") return (a.propertyName ?? a.customer ?? "").localeCompare(b.propertyName ?? b.customer ?? "");
+      if (invoiceSort === "status") return a.status.localeCompare(b.status);
+      return invoiceDateValue(b) - invoiceDateValue(a);
     });
     const visiblePortalInvoiceIds = new Set(visibleInvoices.filter((invoice) => invoice.source !== "Imported tracker").map((invoice) => invoice.id));
     function deleteVisiblePortalInvoices() {
@@ -1266,9 +1313,56 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
             </button>
           ))}
         </div>
+        <Card className="p-4">
+          <div className="grid gap-3 lg:grid-cols-5">
+            <SelectBox label="Date range" value={{
+              all: "All dates",
+              week: "This week",
+              month: "This month",
+              custom: "Custom range"
+            }[invoiceDateFilter] ?? "All dates"} onChange={(label) => {
+              const next = {
+                "All dates": "all",
+                "This week": "week",
+                "This month": "month",
+                "Custom range": "custom"
+              }[label] ?? "all";
+              setInvoiceDateFilter(next);
+            }} options={["All dates", "This week", "This month", "Custom range"]} />
+            <SelectBox label="Sort invoices" value={{
+              newest: "Newest first",
+              oldest: "Oldest first",
+              "amount-high": "Amount high to low",
+              "amount-low": "Amount low to high",
+              building: "Building / customer",
+              status: "Status"
+            }[invoiceSort] ?? "Newest first"} onChange={(label) => {
+              const next = {
+                "Newest first": "newest",
+                "Oldest first": "oldest",
+                "Amount high to low": "amount-high",
+                "Amount low to high": "amount-low",
+                "Building / customer": "building",
+                Status: "status"
+              }[label] ?? "newest";
+              setInvoiceSort(next);
+            }} options={["Newest first", "Oldest first", "Amount high to low", "Amount low to high", "Building / customer", "Status"]} />
+            <label>
+              <span className="text-xs font-bold uppercase text-muted">From</span>
+              <input className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" onChange={(event) => { setInvoiceDateFrom(event.target.value); setInvoiceDateFilter("custom"); }} type="date" value={invoiceDateFrom} />
+            </label>
+            <label>
+              <span className="text-xs font-bold uppercase text-muted">To</span>
+              <input className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" onChange={(event) => { setInvoiceDateTo(event.target.value); setInvoiceDateFilter("custom"); }} type="date" value={invoiceDateTo} />
+            </label>
+            <button className="mt-5 rounded-md border border-border px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={() => { setInvoiceDateFilter("all"); setInvoiceSort("newest"); setInvoiceDateFrom(""); setInvoiceDateTo(""); }} type="button">
+              Reset invoice view
+            </button>
+          </div>
+        </Card>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white p-4">
           <p className="text-sm text-muted">
-            Showing {visibleInvoices.length} invoices. Imported spreadsheet rows are protected from delete. Search first before bulk delete.
+            Showing {visibleInvoices.length} invoices sorted by {invoiceSort.replace("-", " ")}. Imported spreadsheet rows are protected from delete.
           </p>
           <button className="rounded-md border border-rose-200 px-3 py-2 text-sm font-semibold text-accent hover:bg-rose-50" onClick={deleteVisiblePortalInvoices} type="button">
             Delete visible portal invoices

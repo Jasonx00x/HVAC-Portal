@@ -13,6 +13,17 @@ export type CurrentAccess = {
   permissions: PermissionKey[];
 };
 
+type ProfileAccessRow = {
+  email?: string | null;
+  full_name?: string | null;
+  role?: UserRole | null;
+  status?: string | null;
+};
+
+type RoleAccessRow = {
+  role_permissions?: Array<{ permission_key: PermissionKey; enabled?: boolean | null }> | null;
+};
+
 export const roleDefaults: Record<UserRole, PermissionKey[]> = {
   super_admin: [...allPermissions],
   admin: allPermissions.filter((permission) => permission !== "view_profit"),
@@ -74,7 +85,7 @@ export async function getCurrentAccess(): Promise<CurrentAccess> {
   } catch {
     return { isAuthenticated: false, role: "anonymous", permissions: [] };
   }
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   const user = userData.user;
 
   if (!user) {
@@ -82,25 +93,37 @@ export async function getCurrentAccess(): Promise<CurrentAccess> {
   }
 
   const fallbackRole: UserRole = "technician";
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id,email,full_name,role,status")
-    .eq("id", user.id)
-    .maybeSingle();
+  let profile: ProfileAccessRow | null = null;
+  try {
+    const result = await supabase
+      .from("profiles")
+      .select("id,email,full_name,role,status")
+      .eq("id", user.id)
+      .maybeSingle();
+    profile = result.data as ProfileAccessRow | null;
+  } catch {
+    profile = null;
+  }
 
   const role = ((profile?.role as UserRole | undefined) ?? fallbackRole);
   let permissions = roleDefaults[role] ?? roleDefaults.technician;
 
-  const { data: roleRows } = await supabase
-    .from("roles")
-    .select("id,role_permissions(permission_key,enabled)")
-    .eq("role", role)
-    .maybeSingle();
+  let roleRows: RoleAccessRow | null = null;
+  try {
+    const result = await supabase
+      .from("roles")
+      .select("id,role_permissions(permission_key,enabled)")
+      .eq("role", role)
+      .maybeSingle();
+    roleRows = result.data as RoleAccessRow | null;
+  } catch {
+    roleRows = null;
+  }
 
   const permissionRows = roleRows?.role_permissions;
   if (Array.isArray(permissionRows) && permissionRows.length > 0) {
     permissions = permissionRows
-      .filter((row: { enabled?: boolean }) => row.enabled)
+      .filter((row) => row.enabled === true)
       .map((row: { permission_key: PermissionKey }) => row.permission_key)
       .filter((permission: PermissionKey) => allPermissions.includes(permission));
   }
@@ -111,7 +134,7 @@ export async function getCurrentAccess(): Promise<CurrentAccess> {
     email: profile?.email ?? user.email ?? undefined,
     fullName: profile?.full_name ?? user.user_metadata?.full_name ?? undefined,
     role,
-    status: profile?.status,
+    status: profile?.status ?? undefined,
     permissions
   };
 }

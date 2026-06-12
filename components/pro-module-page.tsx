@@ -112,6 +112,19 @@ type FormState = {
   notes: string;
 };
 
+type EquipmentFormState = {
+  equipmentType: string;
+  equipmentName: string;
+  brand: string;
+  model: string;
+  serial: string;
+  refrigerant: string;
+  tonnage: string;
+  warrantyDate: string;
+  dataPlate: string;
+  notes: string;
+};
+
 function id(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -181,6 +194,18 @@ export function ProModulePage({ module }: { module: FieldCoreModule }) {
     owner: "",
     notes: ""
   });
+  const [equipmentForm, setEquipmentForm] = useState<EquipmentFormState>({
+    equipmentType: "",
+    equipmentName: "",
+    brand: "",
+    model: "",
+    serial: "",
+    refrigerant: "",
+    tonnage: "",
+    warrantyDate: "",
+    dataPlate: "",
+    notes: ""
+  });
 
   useEffect(() => {
     async function load() {
@@ -210,6 +235,48 @@ export function ProModulePage({ module }: { module: FieldCoreModule }) {
   }
 
   async function addRecord() {
+    if (module === "equipment") {
+      const name = equipmentForm.equipmentName.trim() || equipmentForm.equipmentType.trim();
+      if (!name) {
+        setNotice("Equipment name or type is required");
+        return;
+      }
+      const notes = [
+        `Type: ${equipmentForm.equipmentType || "Needs type"}`,
+        `Brand: ${equipmentForm.brand || "Needs brand"}`,
+        `Model: ${equipmentForm.model || "Needs model"}`,
+        `Serial: ${equipmentForm.serial || "Needs serial"}`,
+        `Refrigerant: ${equipmentForm.refrigerant || "Needs refrigerant"}`,
+        `Tonnage: ${equipmentForm.tonnage || "Needs tonnage"}`,
+        `Warranty date: ${equipmentForm.warrantyDate || "Needs warranty date"}`,
+        `Data plate: ${equipmentForm.dataPlate || "Needs data plate photo"}`,
+        `Notes: ${equipmentForm.notes || "No notes"}`
+      ].join("\n");
+      const record: SavedRecord = {
+        id: id(module),
+        module,
+        name,
+        status: form.status,
+        owner: [equipmentForm.brand, equipmentForm.model].filter(Boolean).join(" / ") || "Brand / model needed",
+        notes,
+        createdAt: new Date().toISOString()
+      };
+      await save({ ...workspace, records: [record, ...(workspace.records ?? [])] }, `Saved ${name}`);
+      setEquipmentForm({
+        equipmentType: "",
+        equipmentName: "",
+        brand: "",
+        model: "",
+        serial: "",
+        refrigerant: "",
+        tonnage: "",
+        warrantyDate: "",
+        dataPlate: "",
+        notes: ""
+      });
+      return;
+    }
+
     if (!form.name.trim()) {
       setNotice(`${copy.primary} is required`);
       return;
@@ -275,12 +342,35 @@ export function ProModulePage({ module }: { module: FieldCoreModule }) {
           </div>
 
           <div className="grid gap-4 border-b border-border bg-slate-50 p-5 lg:grid-cols-2">
-            {moduleConfig.fields.map(([key, label]) => (
-              <label className={key === "notes" ? "lg:col-span-2" : ""} key={key}>
-                <span className="text-xs font-bold uppercase text-muted">{label}</span>
-                <input className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} value={form[key]} />
-              </label>
-            ))}
+            {module === "equipment" ? (
+              <>
+                {[
+                  ["equipmentType", "Equipment type"],
+                  ["equipmentName", "Equipment name"],
+                  ["brand", "Brand"],
+                  ["model", "Model number"],
+                  ["serial", "Serial number"],
+                  ["refrigerant", "Refrigerant"],
+                  ["tonnage", "Tonnage"],
+                  ["warrantyDate", "Warranty expiration"],
+                  ["dataPlate", "Data plate photo / file note"]
+                ].map(([key, label]) => (
+                  <label key={key}>
+                    <span className="text-xs font-bold uppercase text-muted">{label}</span>
+                    <input className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" onChange={(event) => setEquipmentForm((current) => ({ ...current, [key]: event.target.value }))} type={key === "warrantyDate" ? "date" : "text"} value={equipmentForm[key as keyof EquipmentFormState]} />
+                  </label>
+                ))}
+                <label className="lg:col-span-2">
+                  <span className="text-xs font-bold uppercase text-muted">Equipment notes</span>
+                  <textarea className="mt-1 min-h-24 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" onChange={(event) => setEquipmentForm((current) => ({ ...current, notes: event.target.value }))} value={equipmentForm.notes} />
+                </label>
+              </>
+            ) : moduleConfig.fields.map(([key, label]) => (
+                <label className={key === "notes" ? "lg:col-span-2" : ""} key={key}>
+                  <span className="text-xs font-bold uppercase text-muted">{label}</span>
+                  <input className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary" onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} value={form[key]} />
+                </label>
+              ))}
             <div className="lg:col-span-2">
               <span className="text-xs font-bold uppercase text-muted">Status</span>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -339,10 +429,10 @@ export function ProModulePage({ module }: { module: FieldCoreModule }) {
             </div>
           </Card>
           <Card className="p-5">
-            <h3 className="font-semibold">Next operational step</h3>
-            <p className="mt-2 text-sm text-muted">Connect this module to normalized Supabase tables after the baseline migration is applied. Current records are still saved through the workspace bridge for local testing.</p>
+            <h3 className="font-semibold">Data readiness</h3>
+            <p className="mt-2 text-sm text-muted">Use this section to collect clean Hot & Cool source data. The final production version should move these records into dedicated Supabase tables with audit history.</p>
             <button className="mt-4 inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white" onClick={() => setNotice("Next step noted")} type="button">
-              Review data model
+              Mark for cleanup review
               <ArrowRight className="h-4 w-4" />
             </button>
           </Card>

@@ -5,8 +5,20 @@ import { requiredPermissionForPath, roleDefaults, type UserRole } from "@/lib/au
 
 const publicPaths = ["/login", "/logout"];
 
+type MiddlewareProfileRow = {
+  role?: UserRole | null;
+  status?: string | null;
+};
+
+type MiddlewareRoleRow = {
+  role_permissions?: Array<{ permission_key: PermissionKey; enabled?: boolean | null }> | null;
+};
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (request.method === "OPTIONS") {
+    return NextResponse.next();
+  }
   if (publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
     return NextResponse.next();
   }
@@ -30,7 +42,7 @@ export async function middleware(request: NextRequest) {
     }
   });
 
-  const { data } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   if (!data.user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -41,7 +53,17 @@ export async function middleware(request: NextRequest) {
   const needed = requiredPermissionForPath(pathname);
   if (!needed) return response;
 
-  const { data: profile } = await supabase.from("profiles").select("role,status").eq("id", data.user.id).maybeSingle();
+  let profile: MiddlewareProfileRow | null = null;
+  try {
+    const result = await supabase
+      .from("profiles")
+      .select("role,status")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    profile = result.data as MiddlewareProfileRow | null;
+  } catch {
+    profile = null;
+  }
   const role = ((profile?.role as UserRole | undefined) ?? "technician");
   const status = String(profile?.status ?? "active").toLowerCase();
   if (["disabled", "suspended"].includes(status)) {
@@ -59,15 +81,21 @@ export async function middleware(request: NextRequest) {
   }
 
   let granted = roleDefaults[role] ?? roleDefaults.technician;
-  const { data: roleRow } = await supabase
-    .from("roles")
-    .select("role_permissions(permission_key,enabled)")
-    .eq("role", role)
-    .maybeSingle();
+  let roleRow: MiddlewareRoleRow | null = null;
+  try {
+    const result = await supabase
+      .from("roles")
+      .select("role_permissions(permission_key,enabled)")
+      .eq("role", role)
+      .maybeSingle();
+    roleRow = result.data as MiddlewareRoleRow | null;
+  } catch {
+    roleRow = null;
+  }
   const rows = roleRow?.role_permissions;
   if (Array.isArray(rows) && rows.length > 0) {
     granted = rows
-      .filter((row: { enabled?: boolean }) => row.enabled)
+      .filter((row) => row.enabled === true)
       .map((row: { permission_key: PermissionKey }) => row.permission_key)
       .filter((permission: PermissionKey) => allPermissions.includes(permission));
   }
