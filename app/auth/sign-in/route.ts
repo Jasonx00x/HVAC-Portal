@@ -6,8 +6,16 @@ function safeNext(value: unknown) {
   return next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
 }
 
+function requestOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  if (origin?.startsWith("http")) return origin;
+  const referer = request.headers.get("referer");
+  if (referer?.startsWith("http")) return new URL(referer).origin;
+  return new URL(request.url).origin;
+}
+
 function loginRedirect(request: Request, error: string) {
-  const url = new URL("/login", request.url);
+  const url = new URL("/login", requestOrigin(request));
   url.searchParams.set("error", error);
   return NextResponse.redirect(url, { status: 303 });
 }
@@ -58,5 +66,5 @@ export async function POST(request: Request) {
   }
 
   if (wantsJson) return NextResponse.json({ ok: true, next: safeNext(body.next) });
-  return NextResponse.redirect(new URL(safeNext(body.next), request.url), { status: 303 });
+  return NextResponse.redirect(new URL(safeNext(body.next), requestOrigin(request)), { status: 303 });
 }
