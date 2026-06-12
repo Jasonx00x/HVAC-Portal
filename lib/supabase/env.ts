@@ -20,3 +20,11 @@ export function getSupabaseAdminEnv() {
     serviceRoleKey: cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY)
   };
 }
+
+export function getSupabaseCookieOptions() {
+  return {
+    path: "/",
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production"
+  };
+}

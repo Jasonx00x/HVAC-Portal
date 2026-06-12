@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { permissions as allPermissions, type PermissionKey } from "@/lib/fieldcore";
 import { requiredPermissionForPath, roleDefaults, type UserRole } from "@/lib/auth/permissions";
-import { getSupabasePublicEnv } from "@/lib/supabase/env";
+import { getSupabaseCookieOptions, getSupabasePublicEnv } from "@/lib/supabase/env";
 
 const publicPaths = ["/login", "/logout", "/auth/sign-in"];
 
@@ -31,6 +31,7 @@ export async function middleware(request: NextRequest) {
 
   const supabase = createServerClient(url, anonKey, {
     cookieEncoding: "raw",
+    cookieOptions: getSupabaseCookieOptions(),
     cookies: {
       encode: "tokens-only",
       getAll() {

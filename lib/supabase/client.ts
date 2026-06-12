@@ -1,7 +1,7 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
-import { getSupabasePublicEnv } from "@/lib/supabase/env";
+import { getSupabaseCookieOptions, getSupabasePublicEnv } from "@/lib/supabase/env";
 
 export function createClient() {
   const { url, anonKey } = getSupabasePublicEnv();
@@ -12,6 +12,7 @@ export function createClient() {
 
   return createBrowserClient(url, anonKey, {
     cookieEncoding: "raw",
+    cookieOptions: getSupabaseCookieOptions(),
     cookies: {
       encode: "tokens-only"
     }
