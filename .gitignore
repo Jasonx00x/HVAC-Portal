@@ -1,4 +1,6 @@
 node_modules
+.DS_Store
+.codex-tools
 .next
 out
 dist
@@ -6,4 +8,6 @@ dist
 .env.local
 *.db
 *.db-journal
+*.tsbuildinfo
+data/local-workspace.json
 prisma/dev.db

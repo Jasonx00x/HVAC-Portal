@@ -9,15 +9,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#f6f7f9",
-        foreground: "#172026",
-        border: "#d9dee5",
-        muted: "#667085",
-        panel: "#ffffff",
-        primary: "#126b79",
-        accent: "#d8523f",
-        warning: "#b7791f",
-        success: "#237a57"
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        border: "hsl(var(--border))",
+        muted: "hsl(var(--muted))",
+        panel: "hsl(var(--panel))",
+        primary: "hsl(var(--primary))",
+        accent: "hsl(var(--accent))",
+        warning: "hsl(var(--warning))",
+        success: "hsl(var(--success))"
       },
       boxShadow: {
         soft: "0 10px 30px rgba(15, 23, 42, 0.08)"

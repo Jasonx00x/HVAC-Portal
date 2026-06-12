@@ -45,3 +45,59 @@ export type TechnicianJob = {
   equipment: string;
   propertyNotes: string;
 };
+
+export type SupplierPickup = {
+  supplier: string;
+  branch: string;
+  phone: string;
+  bestFor: string;
+  pickupNotes: string;
+};
+
+export type AdminChecklistItem = {
+  group: string;
+  items: string[];
+};
+
+export type ContractRow = {
+  property: string;
+  contractType: string;
+  startDate: string;
+  endDate: string;
+  billingRule: string;
+  poRule: string;
+  status: string;
+};
+
+export type InvoiceImportSummary = {
+  source: string;
+  invoiceCount: number;
+  totalRevenue: string;
+  paidRevenue: string;
+  unpaidOrBlank: string;
+  dateRange: string;
+  missingFields: string[];
+};
+
+export type ImportedPropertyInvoice = {
+  customer: string;
+  invoiceCount: number;
+  total: string;
+  paid: string;
+  unpaidOrBlank: string;
+  dateRange: string;
+  topServices: string;
+  action: string;
+};
+
+export type ReadinessItem = {
+  label: string;
+  status: "Ready" | "Needs data" | "Next build";
+  detail: string;
+};
+
+export type WorkflowStage = {
+  step: string;
+  owner: string;
+  output: string;
+};

@@ -103,6 +103,9 @@ model Property {
   refrigerantTypes         String?
   commonWaterHeaterModels  String?
   commonEquipmentNotes     String?
+  preferredSupplierId      String?
+  preferredSupplier        Supplier?             @relation(fields: [preferredSupplierId], references: [id])
+  pickupInstructions       String?
   poRequirementNotes       String?
   approvalProcessNotes     String?
   active                   Boolean               @default(true)
@@ -200,6 +203,8 @@ model Job {
   customerNotes        String?
   approvalStatus      ApprovalStatus?
   poNumber            String?
+  supplierPickupId    String?
+  supplierPickup      SupplierPickup?     @relation(fields: [supplierPickupId], references: [id])
   isCallback          Boolean            @default(false)
   materials           MaterialUsed[]
   timesheets          Timesheet[]
@@ -211,6 +216,49 @@ model Job {
   partsNeeded         PartNeeded[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
+}
+
+model Supplier {
+  id          String           @id @default(cuid())
+  name        String
+  accountNotes String?
+  phone       String?
+  website     String?
+  branches    SupplierBranch[]
+  properties  Property[]
+  pickups     SupplierPickup[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model SupplierBranch {
+  id          String           @id @default(cuid())
+  supplierId  String
+  supplier    Supplier         @relation(fields: [supplierId], references: [id])
+  name        String
+  address     String?
+  city        String?
+  state       String?
+  phone       String?
+  notes       String?
+  pickups     SupplierPickup[]
+}
+
+model SupplierPickup {
+  id          String          @id @default(cuid())
+  supplierId  String
+  supplier    Supplier        @relation(fields: [supplierId], references: [id])
+  branchId    String?
+  branch      SupplierBranch? @relation(fields: [branchId], references: [id])
+  job         Job[]
+  partName    String
+  ordered     Boolean         @default(false)
+  readyForPickup Boolean      @default(false)
+  pickedUp    Boolean         @default(false)
+  pickupBy    String?
+  pickupNotes String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 model MaterialUsed {

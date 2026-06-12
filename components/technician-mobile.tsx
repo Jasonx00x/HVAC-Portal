@@ -1,13 +1,13 @@
-import { Camera, CheckCircle2, Clock, FilePenLine, PackagePlus, Timer, Wrench } from "lucide-react";
+import { Camera, CheckCircle2, Clock, FilePenLine, LogIn, LogOut, PackagePlus } from "lucide-react";
 import { technicianJobs } from "@/lib/mock-data";
 import { Badge, Card } from "@/components/ui";
 
 const actions = [
-  { label: "Start", icon: Timer },
+  { label: "Stamp in", icon: LogIn },
+  { label: "Stamp out", icon: LogOut },
   { label: "Diagnosis", icon: FilePenLine },
-  { label: "Material", icon: PackagePlus },
-  { label: "Labor", icon: Clock },
   { label: "Photo", icon: Camera },
+  { label: "Material", icon: PackagePlus },
   { label: "Complete", icon: CheckCircle2 }
 ];
 
@@ -16,7 +16,8 @@ export function TechnicianMobile() {
     <Card className="overflow-hidden">
       <div className="border-b border-border bg-slate-900 px-4 py-4 text-white">
         <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">Technician view</p>
-        <h2 className="mt-1 text-lg font-semibold">Today</h2>
+        <h2 className="mt-1 text-lg font-semibold">Today&apos;s jobs</h2>
+        <p className="mt-1 text-xs text-slate-300">Clock in, take photos, write the report, clock out.</p>
       </div>
       <div className="space-y-4 p-4">
         {technicianJobs.map((job) => (
@@ -50,6 +51,15 @@ export function TechnicianMobile() {
                   </button>
                 );
               })}
+            </div>
+            <div className="mt-4 rounded-md border border-dashed border-border p-3 text-sm">
+              <p className="font-semibold">Required before closing</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted">
+                <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Time stamped</span>
+                <span className="inline-flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> Photos added</span>
+                <span className="inline-flex items-center gap-1"><FilePenLine className="h-3.5 w-3.5" /> Diagnosis report</span>
+                <span className="inline-flex items-center gap-1"><PackagePlus className="h-3.5 w-3.5" /> Materials logged</span>
+              </div>
             </div>
           </article>
         ))}

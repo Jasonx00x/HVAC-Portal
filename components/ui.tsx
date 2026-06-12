@@ -4,12 +4,14 @@ import type { StatusTone } from "@/lib/types";
 
 export function Card({
   children,
-  className
+  className,
+  id
 }: {
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
-  return <section className={clsx("rounded-lg border border-border bg-panel shadow-soft", className)}>{children}</section>;
+  return <section className={clsx("rounded-lg border border-border bg-panel shadow-soft", className)} id={id}>{children}</section>;
 }
 
 export function Badge({

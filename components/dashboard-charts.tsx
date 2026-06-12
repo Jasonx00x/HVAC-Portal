@@ -15,7 +15,7 @@ export function RevenueChart() {
         <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
         <Legend />
         <Bar dataKey="revenue" fill="#126b79" name="Revenue" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="cost" fill="#d8523f" name="Labor + material cost" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="cost" fill="#d8523f" name="Known job cost" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

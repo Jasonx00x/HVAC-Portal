@@ -4,6 +4,28 @@
 
 :root {
   color-scheme: light;
+  --background: 210 20% 97%;
+  --foreground: 199 24% 12%;
+  --border: 215 18% 87%;
+  --muted: 221 13% 46%;
+  --panel: 0 0% 100%;
+  --primary: 188 74% 27%;
+  --accent: 8 65% 55%;
+  --warning: 35 72% 42%;
+  --success: 154 55% 31%;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --background: 222 28% 9%;
+  --foreground: 210 28% 92%;
+  --border: 217 20% 24%;
+  --muted: 215 14% 68%;
+  --panel: 222 24% 13%;
+  --primary: 187 72% 42%;
+  --accent: 8 74% 61%;
+  --warning: 38 86% 56%;
+  --success: 151 55% 46%;
 }
 
 * {
@@ -12,9 +34,98 @@
 
 body {
   margin: 0;
-  background: #f6f7f9;
-  color: #172026;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-white\/95,
+html[data-theme="dark"] .bg-slate-50,
+html[data-theme="dark"] .bg-slate-100 {
+  background-color: hsl(var(--panel));
+}
+
+html[data-theme="dark"] .bg-slate-900,
+html[data-theme="dark"] .bg-slate-950 {
+  background-color: hsl(224 30% 8%);
+}
+
+html[data-theme="dark"] .bg-cyan-50 {
+  background-color: hsl(189 55% 18%);
+}
+
+html[data-theme="dark"] .bg-emerald-50 {
+  background-color: hsl(153 45% 17%);
+}
+
+html[data-theme="dark"] .bg-amber-50 {
+  background-color: hsl(35 60% 18%);
+}
+
+html[data-theme="dark"] .bg-rose-50 {
+  background-color: hsl(356 48% 18%);
+}
+
+html[data-theme="dark"] .text-slate-700,
+html[data-theme="dark"] .text-slate-950,
+html[data-theme="dark"] .text-slate-900,
+html[data-theme="dark"] .text-slate-800 {
+  color: hsl(var(--foreground));
+}
+
+html[data-theme="dark"] .text-slate-300,
+html[data-theme="dark"] .text-slate-400,
+html[data-theme="dark"] .text-slate-500,
+html[data-theme="dark"] .text-slate-600 {
+  color: hsl(var(--muted));
+}
+
+html[data-theme="dark"] .text-cyan-700,
+html[data-theme="dark"] .text-cyan-800,
+html[data-theme="dark"] .text-primary {
+  color: hsl(188 86% 68%);
+}
+
+html[data-theme="dark"] .text-emerald-700 {
+  color: hsl(151 70% 70%);
+}
+
+html[data-theme="dark"] .text-amber-800,
+html[data-theme="dark"] .text-amber-700 {
+  color: hsl(40 92% 72%);
+}
+
+html[data-theme="dark"] .text-rose-700,
+html[data-theme="dark"] .text-accent {
+  color: hsl(8 86% 72%);
+}
+
+html[data-theme="dark"] .text-white {
+  color: white;
+}
+
+html[data-theme="dark"] .border-slate-200,
+html[data-theme="dark"] .border-slate-300,
+html[data-theme="dark"] .border-rose-200 {
+  border-color: hsl(var(--border));
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background: hsl(var(--panel));
+  color: hsl(var(--foreground));
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: hsl(var(--muted));
+}
+
+html[data-theme="dark"] button:disabled {
+  color: hsl(var(--muted));
+  opacity: 0.65;
 }
 
 button,

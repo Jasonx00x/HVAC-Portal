@@ -8,8 +8,7 @@ async function main() {
       { key: "companyName", value: "Hot & Cool Services" },
       { key: "defaultInvoiceTerms", value: "Net 30" },
       { key: "defaultMaterialMarkupPercent", value: "30" }
-    ],
-    skipDuplicates: true
+    ]
   });
 
   const jose = await prisma.employee.create({
@@ -61,6 +60,31 @@ async function main() {
       commonWaterHeaterModels: "Bradford White 40 gal electric",
       poRequirementNotes: "PO required before invoices over $500 are paid.",
       approvalProcessNotes: "Send estimate to manager, then wait for written approval."
+    }
+  });
+
+  const united = await prisma.supplier.create({
+    data: {
+      name: "United Refrigeration",
+      accountNotes: "Confirm account pricing, stock, and will-call branch before sending technician.",
+      website: "https://www.uri.com"
+    }
+  });
+
+  const unitedBranch = await prisma.supplierBranch.create({
+    data: {
+      supplierId: united.id,
+      name: "Capitol Heights / Jessup / Rockville area",
+      state: "MD",
+      notes: "Use nearest branch with stock for refrigerant, compressors, and HVAC/R replacement parts."
+    }
+  });
+
+  await prisma.property.update({
+    where: { id: property.id },
+    data: {
+      preferredSupplierId: united.id,
+      pickupInstructions: "For larger unit or compressor pickups, confirm Maryland branch stock and will-call timing before dispatch."
     }
   });
 
@@ -183,6 +207,24 @@ async function main() {
       ordered: false,
       received: false
     }
+  });
+
+  const compressorPickup = await prisma.supplierPickup.create({
+    data: {
+      supplierId: united.id,
+      branchId: unitedBranch.id,
+      partName: "2.5 ton R-410A compressor",
+      ordered: false,
+      readyForPickup: false,
+      pickedUp: false,
+      pickupBy: "Oscar Alfaro",
+      pickupNotes: "Need manager approval and PO before ordering."
+    }
+  });
+
+  await prisma.job.update({
+    where: { id: waitingJob.id },
+    data: { supplierPickupId: compressorPickup.id }
   });
 
   const invoice = await prisma.invoice.create({
