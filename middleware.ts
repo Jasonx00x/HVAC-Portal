@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { permissions as allPermissions, type PermissionKey } from "@/lib/fieldcore";
 import { requiredPermissionForPath, roleDefaults, type UserRole } from "@/lib/auth/permissions";
 
-const publicPaths = ["/login", "/logout", "/setup"];
+const publicPaths = ["/login", "/logout"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
