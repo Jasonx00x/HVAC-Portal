@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdminEnv } from "@/lib/supabase/env";
 
 export function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url, serviceRoleKey } = getSupabaseAdminEnv();
 
   if (!url || !serviceRoleKey) return null;
 

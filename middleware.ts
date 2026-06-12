@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { permissions as allPermissions, type PermissionKey } from "@/lib/fieldcore";
 import { requiredPermissionForPath, roleDefaults, type UserRole } from "@/lib/auth/permissions";
+import { getSupabasePublicEnv } from "@/lib/supabase/env";
 
 const publicPaths = ["/login", "/logout", "/auth/sign-in"];
 
@@ -24,13 +25,14 @@ export async function middleware(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url, anonKey } = getSupabasePublicEnv();
 
   if (!url || !anonKey) return response;
 
   const supabase = createServerClient(url, anonKey, {
+    cookieEncoding: "raw",
     cookies: {
+      encode: "tokens-only",
       getAll() {
         return request.cookies.getAll();
       },
