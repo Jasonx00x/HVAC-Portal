@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -66,7 +65,6 @@ function LoginForm() {
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </div>
-        <Link className="mt-4 block text-center text-sm font-semibold text-primary" href="/setup">Setup / role diagnostics</Link>
       </section>
     </main>
   );
