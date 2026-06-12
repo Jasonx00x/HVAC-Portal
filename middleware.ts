@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { permissions as allPermissions, type PermissionKey } from "@/lib/fieldcore";
 import { requiredPermissionForPath, roleDefaults, type UserRole } from "@/lib/auth/permissions";
 
-const publicPaths = ["/login", "/logout"];
+const publicPaths = ["/login", "/logout", "/auth/sign-in"];
 
 type MiddlewareProfileRow = {
   role?: UserRole | null;

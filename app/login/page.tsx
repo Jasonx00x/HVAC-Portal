@@ -3,7 +3,6 @@
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, Mail } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
   const router = useRouter();
@@ -20,24 +19,20 @@ function LoginForm() {
   async function signIn() {
     setLoading(true);
     setNotice("Signing in...");
-    let supabase: ReturnType<typeof createClient>;
-    try {
-      supabase = createClient();
-    } catch {
-      setNotice("Supabase is not configured yet. Add the Supabase URL and anon key in Netlify environment variables, then redeploy.");
+    const response = await fetch("/auth/sign-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, next })
+    }).catch(() => null);
+    const result = response ? await response.json().catch(() => null) as { error?: string; next?: string } | null : null;
+    if (!response?.ok || result?.error) {
+      setNotice(result?.error ?? "Supabase could not be reached. Check the project URL/key and internet connection, then try again.");
       setLoading(false);
       return;
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password }).catch(() => ({
-      error: { message: "Supabase could not be reached. Check the project URL/key and internet connection, then try again." }
-    }));
-    if (error) {
-      setNotice(error.message);
-      setLoading(false);
-      return;
-    }
-    router.push(next);
+    router.replace(result?.next ?? next);
     router.refresh();
+    window.location.assign(result?.next ?? next);
   }
 
   return (
