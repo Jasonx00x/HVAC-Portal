@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { appSessionCookieName, verifyAppSessionCookie } from "@/lib/auth/session-cookie";
 import { permissions as allPermissions, type PermissionKey } from "@/lib/fieldcore";
 import { requiredPermissionForPath, roleDefaults, type UserRole } from "@/lib/auth/permissions";
 import { getSupabaseCookieOptions, getSupabasePublicEnv } from "@/lib/supabase/env";
@@ -46,7 +47,8 @@ export async function middleware(request: NextRequest) {
   });
 
   const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-  if (!data.user) {
+  const appSession = await verifyAppSessionCookie(request.cookies.get(appSessionCookieName)?.value);
+  if (!data.user && !appSession) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
@@ -56,16 +58,20 @@ export async function middleware(request: NextRequest) {
   const needed = requiredPermissionForPath(pathname);
   if (!needed) return response;
 
-  let profile: MiddlewareProfileRow | null = null;
+  let profile: MiddlewareProfileRow | null = appSession
+    ? { role: appSession.role, status: appSession.status ?? "active" }
+    : null;
   try {
-    const result = await supabase
-      .from("profiles")
-      .select("role,status")
-      .eq("id", data.user.id)
-      .maybeSingle();
-    profile = result.data as MiddlewareProfileRow | null;
+    if (data.user) {
+      const result = await supabase
+        .from("profiles")
+        .select("role,status")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      profile = result.data as MiddlewareProfileRow | null;
+    }
   } catch {
-    profile = null;
+    profile = profile ?? null;
   }
   const role = ((profile?.role as UserRole | undefined) ?? "technician");
   const status = String(profile?.status ?? "active").toLowerCase();

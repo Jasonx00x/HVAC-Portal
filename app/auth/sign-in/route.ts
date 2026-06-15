@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+import { appSessionCookieName, appSessionCookieOptions, createAppSessionCookie } from "@/lib/auth/session-cookie";
+import type { UserRole } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+
+type LoginProfile = { full_name?: string | null; role?: UserRole | null; status?: string | null };
 
 function safeNext(value: unknown) {
   const next = typeof value === "string" ? value : "/dashboard";
@@ -65,6 +69,28 @@ export async function POST(request: Request) {
       : loginRedirect(request, error.message);
   }
 
-  if (wantsJson) return NextResponse.json({ ok: true, next: safeNext(body.next) });
-  return NextResponse.redirect(new URL(safeNext(body.next), requestOrigin(request)), { status: 303 });
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  let profile: LoginProfile | null = null;
+  if (user) {
+    const result = await supabase.from("profiles").select("full_name,role,status").eq("id", user.id).maybeSingle();
+    profile = result.data as LoginProfile | null;
+  }
+
+  const response = wantsJson
+    ? NextResponse.json({ ok: true, next: safeNext(body.next) })
+    : NextResponse.redirect(new URL(safeNext(body.next), requestOrigin(request)), { status: 303 });
+
+  if (user) {
+    const appSession = await createAppSessionCookie({
+      userId: user.id,
+      email: user.email ?? email,
+      fullName: profile?.full_name ?? user.user_metadata?.full_name ?? user.email ?? email,
+      role: profile?.role ?? "technician",
+      status: profile?.status ?? "active"
+    });
+    response.cookies.set(appSessionCookieName, appSession, appSessionCookieOptions());
+  }
+
+  return response;
 }

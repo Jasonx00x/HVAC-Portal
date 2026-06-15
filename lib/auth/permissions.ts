@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { appSessionCookieName, verifyAppSessionCookie } from "@/lib/auth/session-cookie";
 import { appRoutes, permissions as allPermissions, type PermissionKey } from "@/lib/fieldcore";
 
 export type UserRole = "super_admin" | "admin" | "office_staff" | "technician";
@@ -79,16 +81,41 @@ export function requiredPermissionForPath(pathname: string) {
 }
 
 export async function getCurrentAccess(): Promise<CurrentAccess> {
+  const fallbackSession = await verifyAppSessionCookie((await cookies()).get(appSessionCookieName)?.value);
   let supabase: Awaited<ReturnType<typeof createClient>>;
   try {
     supabase = await createClient();
   } catch {
+    if (fallbackSession) {
+      const permissions = roleDefaults[fallbackSession.role] ?? roleDefaults.technician;
+      return {
+        isAuthenticated: true,
+        userId: fallbackSession.userId,
+        email: fallbackSession.email,
+        fullName: fallbackSession.fullName,
+        role: fallbackSession.role,
+        status: fallbackSession.status,
+        permissions
+      };
+    }
     return { isAuthenticated: false, role: "anonymous", permissions: [] };
   }
   const { data: userData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   const user = userData.user;
 
   if (!user) {
+    if (fallbackSession) {
+      const permissions = roleDefaults[fallbackSession.role] ?? roleDefaults.technician;
+      return {
+        isAuthenticated: true,
+        userId: fallbackSession.userId,
+        email: fallbackSession.email,
+        fullName: fallbackSession.fullName,
+        role: fallbackSession.role,
+        status: fallbackSession.status,
+        permissions
+      };
+    }
     return { isAuthenticated: false, role: "anonymous", permissions: [] };
   }
 
