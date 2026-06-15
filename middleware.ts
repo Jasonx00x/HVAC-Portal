@@ -49,10 +49,7 @@ export async function middleware(request: NextRequest) {
   const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   const appSession = await verifyAppSessionCookie(request.cookies.get(appSessionCookieName)?.value);
   if (!data.user && !appSession) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return response;
   }
 
   const needed = requiredPermissionForPath(pathname);

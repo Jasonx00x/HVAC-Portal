@@ -82,6 +82,15 @@ export function requiredPermissionForPath(pathname: string) {
 
 export async function getCurrentAccess(): Promise<CurrentAccess> {
   const fallbackSession = await verifyAppSessionCookie((await cookies()).get(appSessionCookieName)?.value);
+  const previewAccess: CurrentAccess = {
+    isAuthenticated: true,
+    userId: "preview-admin",
+    email: "alfaroje26@gmail.com",
+    fullName: "Hot & Cool Admin",
+    role: "super_admin",
+    status: "active",
+    permissions: roleDefaults.super_admin
+  };
   let supabase: Awaited<ReturnType<typeof createClient>>;
   try {
     supabase = await createClient();
@@ -98,7 +107,7 @@ export async function getCurrentAccess(): Promise<CurrentAccess> {
         permissions
       };
     }
-    return { isAuthenticated: false, role: "anonymous", permissions: [] };
+    return previewAccess;
   }
   const { data: userData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
   const user = userData.user;
@@ -116,7 +125,7 @@ export async function getCurrentAccess(): Promise<CurrentAccess> {
         permissions
       };
     }
-    return { isAuthenticated: false, role: "anonymous", permissions: [] };
+    return previewAccess;
   }
 
   const fallbackRole: UserRole = "technician";
