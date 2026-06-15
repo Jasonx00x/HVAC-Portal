@@ -87,6 +87,9 @@ type InvoiceRecord = {
   serviceDescription?: string;
   propertyName?: string;
   cleanupFlags?: string[];
+  googleSyncStatus?: "Not synced" | "Syncing" | "Synced" | "Failed";
+  googleSyncedAt?: string;
+  googleSyncError?: string;
 };
 
 type SavedRecord = {
@@ -431,6 +434,7 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
     });
     setNotice(message);
     setSaving(false);
+    return normalizedNext;
   }
 
   const propertyById = useMemo(() => new Map(state.properties.map((property) => [property.id, property])), [state.properties]);
@@ -576,13 +580,19 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
       amount: 0,
       status: "Draft",
       poNumber: job.poNumber ?? "",
-      source: "Portal-created"
+      source: "Portal-created",
+      customer: accountNameForJob(job),
+      propertyName: accountNameForJob(job),
+      date: new Date().toISOString().slice(0, 10),
+      serviceDescription: job.problemReported ?? "",
+      googleSyncStatus: "Not synced"
     };
-    void save({
+    const nextState = {
       ...state,
       invoices: [invoice, ...state.invoices],
       jobs: state.jobs.map((item) => item.id === job.id ? { ...item, status: "Invoiced", invoiceStatus: "Draft" } : item)
-    }, `Created ${invoice.invoiceNumber}`);
+    };
+    void save(nextState, `Created ${invoice.invoiceNumber}`).then(() => syncInvoiceToGoogle(invoice, nextState));
   }
 
   function createBlankInvoice() {
@@ -596,10 +606,52 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
       customer: "Customer needed",
       propertyName: "Property needed",
       date: new Date().toISOString().slice(0, 10),
-      serviceDescription: "Description needed"
+      serviceDescription: "Description needed",
+      googleSyncStatus: "Not synced"
     };
-    void save({ ...state, invoices: [invoice, ...state.invoices] }, `Created ${invoice.invoiceNumber}`);
+    const nextState = { ...state, invoices: [invoice, ...state.invoices] };
+    void save(nextState, `Created ${invoice.invoiceNumber}`).then(() => syncInvoiceToGoogle(invoice, nextState));
     setEditingInvoiceId(invoice.id);
+  }
+
+  async function syncInvoiceToGoogle(invoice: InvoiceRecord, baseState: WorkspaceState = state) {
+    if (invoice.source === "Imported tracker" || !baseState.invoices.some((item) => item.id === invoice.id)) {
+      setNotice("Only portal-created invoices can sync to Google Sheets.");
+      return;
+    }
+
+    const syncingState = {
+      ...baseState,
+      invoices: baseState.invoices.map((item) => item.id === invoice.id ? { ...item, googleSyncStatus: "Syncing" as const, googleSyncError: "" } : item)
+    };
+    setState(syncingState);
+    setNotice(`Syncing ${invoice.invoiceNumber} to Google Sheets...`);
+
+    try {
+      const response = await fetch("/api/invoices/sync-google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(invoice)
+      });
+      const result = await response.json().catch(() => ({}));
+      const syncedAt = typeof result.syncedAt === "string" ? result.syncedAt : new Date().toISOString();
+      const googleSyncPatch = response.ok
+        ? { googleSyncStatus: "Synced" as const, googleSyncedAt: syncedAt, googleSyncError: "" }
+        : { googleSyncStatus: "Failed" as const, googleSyncError: result.error ?? "Google sync failed." };
+      await save({
+        ...syncingState,
+        invoices: syncingState.invoices.map((item) => item.id === invoice.id ? { ...item, ...googleSyncPatch } : item)
+      }, response.ok ? `${invoice.invoiceNumber} synced to Google Sheets.` : `${invoice.invoiceNumber} could not sync to Google Sheets.`);
+    } catch (error) {
+      await save({
+        ...syncingState,
+        invoices: syncingState.invoices.map((item) => item.id === invoice.id ? {
+          ...item,
+          googleSyncStatus: "Failed" as const,
+          googleSyncError: error instanceof Error ? error.message : "Google sync failed."
+        } : item)
+      }, `${invoice.invoiceNumber} could not sync to Google Sheets.`);
+    }
   }
 
   function addServiceType() {
@@ -1380,16 +1432,18 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
           <Metric label="Matched properties" value={invoicePropertyNames.length.toString()} />
         </div>
         <Card className="overflow-x-auto">
-          <div className="grid min-w-[1680px] grid-cols-[120px_130px_110px_220px_1.4fr_110px_130px_130px_210px] gap-4 border-b border-border bg-slate-50 p-4 text-xs font-bold uppercase text-muted">
-            <span>Invoice</span><span>Source</span><span>Date</span><span>Property/client</span><span>Description</span><span>Amount</span><span>Status</span><span>PO</span><span>Actions</span>
+          <div className="grid min-w-[1840px] grid-cols-[120px_130px_110px_220px_1.4fr_110px_130px_130px_150px_240px] gap-4 border-b border-border bg-slate-50 p-4 text-xs font-bold uppercase text-muted">
+            <span>Invoice</span><span>Source</span><span>Date</span><span>Property/client</span><span>Description</span><span>Amount</span><span>Status</span><span>PO</span><span>Google sync</span><span>Actions</span>
           </div>
           {visibleInvoices.map((invoice) => {
             const job = state.jobs.find((item) => item.id === invoice.jobId);
             const property = job ? propertyById.get(job.propertyId) : undefined;
             const canDeleteInvoice = invoice.source !== "Imported tracker";
+            const canSyncInvoice = state.invoices.some((item) => item.id === invoice.id);
+            const googleSyncStatus = canSyncInvoice ? invoice.googleSyncStatus ?? "Not synced" : "Imported";
             return (
               <div className="border-b border-border" key={invoice.id}>
-                <div className="grid min-w-[1680px] grid-cols-[120px_130px_110px_220px_1.4fr_110px_130px_130px_210px] items-start gap-4 p-4 text-sm">
+                <div className="grid min-w-[1840px] grid-cols-[120px_130px_110px_220px_1.4fr_110px_130px_130px_150px_240px] items-start gap-4 p-4 text-sm">
                   <p className="font-semibold">{invoice.invoiceNumber}</p>
                   <p>{invoice.source}</p>
                   <p>{invoice.date || "Needs date"}</p>
@@ -1401,11 +1455,21 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
                   <p>${invoice.amount.toLocaleString()}</p>
                   <Badge tone={statusTone(invoice.status)}>{invoice.status}</Badge>
                   <p>{invoice.poNumber || "Missing"}</p>
+                  <div>
+                    <Badge tone={googleSyncStatus === "Synced" ? "success" : googleSyncStatus === "Failed" ? "danger" : googleSyncStatus === "Syncing" ? "warning" : "info"}>{googleSyncStatus}</Badge>
+                    {invoice.googleSyncedAt ? <p className="mt-1 text-xs text-muted">{new Date(invoice.googleSyncedAt).toLocaleString()}</p> : null}
+                    {invoice.googleSyncError ? <p className="mt-1 text-xs text-accent">{invoice.googleSyncError}</p> : null}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button className="min-w-14 rounded-md border border-border px-2.5 py-1.5 text-center text-xs font-semibold text-primary hover:bg-cyan-50" onClick={() => setEditingInvoiceId((current) => current === invoice.id ? null : invoice.id)} type="button">
                       {editingInvoiceId === invoice.id ? "Close" : "Edit"}
                     </button>
                     <Link className="min-w-14 rounded-md border border-border px-2.5 py-1.5 text-center text-xs font-semibold text-primary hover:bg-cyan-50" href={`/invoices/${invoice.id}`}>Open</Link>
+                    {canSyncInvoice ? (
+                      <button className="min-w-16 rounded-md border border-border px-2.5 py-1.5 text-center text-xs font-semibold text-primary hover:bg-cyan-50 disabled:opacity-60" disabled={invoice.googleSyncStatus === "Syncing"} onClick={() => syncInvoiceToGoogle(invoice)} type="button">
+                        {invoice.googleSyncStatus === "Synced" ? "Resync" : "Sync"}
+                      </button>
+                    ) : null}
                     {canDeleteInvoice ? (
                       <button className="inline-flex min-w-20 items-center justify-center gap-1 rounded-md border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-accent hover:bg-rose-50" onClick={() => deleteInvoice(invoice.id)} type="button">
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1599,7 +1663,7 @@ function InvoiceEditPanel({
   });
 
   return (
-    <div className="min-w-[1680px] border-t border-border bg-slate-50 p-4">
+    <div className="min-w-[1840px] border-t border-border bg-slate-50 p-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <label>
           <span className="text-xs font-bold uppercase text-muted">Invoice #</span>
