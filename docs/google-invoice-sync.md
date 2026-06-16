@@ -26,7 +26,8 @@ GOOGLE_INVOICE_SYNC_SECRET="same-secret-used-in-apps-script"
 
 ## FieldCore Behavior
 
-- New portal-created invoices auto-sync to Google Sheets.
+- Invoices created from completed jobs auto-sync to Google Sheets.
+- Blank draft invoices stay in FieldCore until staff review them and click `Sync`.
 - Portal-created invoices show a `Google sync` status in the invoice table.
 - Imported spreadsheet invoices are protected and are not pushed back into Google.
 - If Google rejects the request or the secret does not match, the invoice stays in FieldCore and shows `Failed`.

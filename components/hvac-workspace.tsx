@@ -610,7 +610,7 @@ export function HvacWorkspace({ view, canManageSettings = false }: { view: "jobs
       googleSyncStatus: "Not synced"
     };
     const nextState = { ...state, invoices: [invoice, ...state.invoices] };
-    void save(nextState, `Created ${invoice.invoiceNumber}`).then(() => syncInvoiceToGoogle(invoice, nextState));
+    void save(nextState, `Created ${invoice.invoiceNumber}. Review the draft, then click Sync when it is ready for Google Sheets.`);
     setEditingInvoiceId(invoice.id);
   }
 
